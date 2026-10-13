@@ -1,11 +1,13 @@
-import streamlit as st
-import pandas as pd
-import joblib
-from pathlib import Path
 import base64
+from pathlib import Path
+
+import joblib
+import pandas as pd
+import streamlit as st
+
 
 # ============================================================
-# PAGE CONFIG
+# PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
@@ -15,268 +17,293 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ============================================================
-# PATHS
-# ============================================================
-
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "machine_failure_model.pkl"
 
-BACKGROUND_FILES = [
+
+# ============================================================
+# LOAD TRAINED MODEL
+# ============================================================
+
+@st.cache_resource
+def load_model():
+    return joblib.load(MODEL_PATH)
+
+
+if not MODEL_PATH.exists():
+    st.error("Trained model not found: machine_failure_model.pkl")
+    st.info("Run `python train_model.py` to create the model first.")
+    st.stop()
+
+try:
+    model = load_model()
+except Exception as error:
+    st.error("Unable to load the trained model.")
+    st.exception(error)
+    st.stop()
+
+
+# ============================================================
+# OPTIONAL BACKGROUND IMAGE
+# ============================================================
+
+background_files = [
     BASE_DIR / "assets" / "maintenance-bg.png",
     BASE_DIR / "assets" / "maintenance-bg.jpg",
     BASE_DIR / "assets" / "maintenance-bg.jpeg",
 ]
 
-# ============================================================
-# MODEL
-# ============================================================
-
-@st.cache_resource
-def load_model(path):
-    return joblib.load(path)
-
-
-if not MODEL_PATH.exists():
-    st.error("machine_failure_model.pkl was not found.")
-    st.info("Place the model file in the same folder as app.py.")
-    st.stop()
-
-try:
-    model = load_model(MODEL_PATH)
-except Exception as exc:
-    st.error("The trained model could not be loaded.")
-    st.exception(exc)
-    st.stop()
-
-# ============================================================
-# BACKGROUND IMAGE
-# ============================================================
-
 background_path = next(
-    (p for p in BACKGROUND_FILES if p.exists()),
+    (path for path in background_files if path.exists()),
     None,
 )
 
-if background_path is not None:
-    mime = "image/png" if background_path.suffix.lower() == ".png" else "image/jpeg"
+if background_path:
+    try:
+        extension = background_path.suffix.lower()
+        image_type = "image/png" if extension == ".png" else "image/jpeg"
 
-    with open(background_path, "rb") as f:
-        encoded = base64.b64encode(f.read()).decode("utf-8")
+        encoded_image = base64.b64encode(
+            background_path.read_bytes()
+        ).decode("utf-8")
 
-    st.markdown(
-        f"""<style>
-        .stApp {{
-            background-image:
-                linear-gradient(
-                    90deg,
-                    rgba(4,13,25,0.94) 0%,
-                    rgba(5,18,32,0.88) 45%,
-                    rgba(5,18,32,0.76) 100%
-                ),
-                url("data:{mime};base64,{encoded}");
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            background-repeat: no-repeat;
-        }}
-        </style>""",
-        unsafe_allow_html=True,
-    )
+        st.markdown(
+            f"""
+            <style>
+            .stApp {{
+                background-image:
+                    linear-gradient(
+                        rgba(5, 15, 28, 0.94),
+                        rgba(5, 15, 28, 0.96)
+                    ),
+                    url("data:{image_type};base64,{encoded_image}");
+                background-size: cover;
+                background-position: center;
+                background-attachment: fixed;
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+    except OSError:
+        pass
+
 
 # ============================================================
-# CSS
+# PROFESSIONAL UI STYLING
 # ============================================================
-# This is the ONLY HTML in this application and it contains
-# CSS only. All visible content uses native Streamlit widgets.
 
 st.markdown(
     """
-<style>
-.block-container {
-    max-width: 1350px;
-    padding-top: 1.5rem;
-    padding-bottom: 4rem;
-}
-
-section[data-testid="stSidebar"] {
-    background: rgba(4, 12, 23, 0.98);
-    border-right: 1px solid rgba(255,255,255,0.08);
-}
-
-section[data-testid="stSidebar"] h1 {
-    font-size: 25px;
-    letter-spacing: -0.5px;
-}
-
-section[data-testid="stSidebar"] h3 {
-    color: #72b8ff;
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-}
-
-section[data-testid="stSidebar"] p,
-section[data-testid="stSidebar"] li {
-    color: #aebed0;
-}
-
-div[data-testid="stVerticalBlockBorderWrapper"] {
-    background:
-        linear-gradient(
-            90deg,
-            rgba(6,22,39,0.97),
-            rgba(8,29,49,0.88)
-        );
-    border: 1px solid rgba(114,184,255,0.20);
-    border-radius: 24px;
-    box-shadow: 0 25px 70px rgba(0,0,0,0.35);
-}
-
-div[data-testid="stVerticalBlockBorderWrapper"] h1 {
-    color: #ffffff;
-    font-size: 48px;
-    line-height: 1.05;
-    letter-spacing: -1.5px;
-    margin-top: 0;
-}
-
-div[data-testid="stVerticalBlockBorderWrapper"] h3 {
-    color: #72b8ff;
-    font-size: 12px;
-    letter-spacing: 2.5px;
-    text-transform: uppercase;
-}
-
-div[data-testid="stVerticalBlockBorderWrapper"] p {
-    color: #b7c8d9;
-    line-height: 1.65;
-}
-
-label {
-    color: #dce7f2 !important;
-    font-weight: 600 !important;
-}
-
-div[data-baseweb="select"] > div {
-    background-color: rgba(4,15,28,0.96) !important;
-    border: 1px solid rgba(255,255,255,0.10) !important;
-    border-radius: 10px !important;
-}
-
-div[data-testid="stNumberInput"] input {
-    background-color: rgba(4,15,28,0.96) !important;
-    color: #ffffff !important;
-    border-radius: 10px !important;
-}
-
-div[data-testid="stNumberInput"] button {
-    background-color: rgba(28,39,55,0.95) !important;
-    color: #ffffff !important;
-}
-
-div.stButton > button {
-    width: 100%;
-    min-height: 52px;
-    background: linear-gradient(135deg,#1976d2,#0d47a1);
-    color: #ffffff;
-    border: none;
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: 0.5px;
-    box-shadow: 0 10px 30px rgba(25,118,210,0.25);
-}
-
-div.stButton > button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 15px 35px rgba(25,118,210,0.40);
-}
-
-div[data-testid="stMetric"] {
-    background: rgba(7,21,37,0.94);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 17px;
-    padding: 18px;
-}
-
-div[data-testid="stMetricLabel"] {
-    color: #8fa4b9 !important;
-}
-
-div[data-testid="stMetricValue"] {
-    color: #ffffff !important;
-}
-
-div[data-testid="stExpander"] {
-    background: rgba(7,20,36,0.92);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px;
-}
-
-@media (max-width: 768px) {
-    div[data-testid="stVerticalBlockBorderWrapper"] h1 {
-        font-size: 36px;
+    <style>
+    .block-container {
+        max-width: 1250px;
+        padding-top: 2rem;
+        padding-bottom: 3rem;
     }
-}
-</style>
-""",
+
+    .hero {
+        background: linear-gradient(120deg, #10263d, #173b58);
+        border: 1px solid #294965;
+        border-radius: 18px;
+        padding: 32px;
+        margin-bottom: 26px;
+    }
+
+    .eyebrow {
+        color: #83c7ff;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 2px;
+    }
+
+    .hero h1 {
+        color: #ffffff;
+        font-size: 38px;
+        margin: 10px 0;
+    }
+
+    .hero p {
+        color: #c3d3e2;
+        font-size: 15px;
+        line-height: 1.7;
+        max-width: 760px;
+        margin-bottom: 0;
+    }
+
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-color: rgba(150, 180, 210, 0.20);
+        border-radius: 14px;
+    }
+
+    div.stButton > button {
+        min-height: 48px;
+        font-weight: 700;
+        border-radius: 10px;
+    }
+
+    h2, h3 {
+        letter-spacing: -0.3px;
+    }
+    </style>
+    """,
     unsafe_allow_html=True,
 )
+
+
+# ============================================================
+# DEMO SCENARIOS
+# ============================================================
+
+DEMO_SCENARIOS = {
+    "Custom Inputs": None,
+
+    "Demo 1 — Low Risk Example": {
+        "Type": "L",
+        "Air temperature [K]": 298.10,
+        "Process temperature [K]": 308.60,
+        "Rotational speed [rpm]": 1500,
+        "Torque [Nm]": 40.00,
+        "Tool wear [min]": 20,
+    },
+
+    "Demo 2 — Moderate Risk Example": {
+        "Type": "L",
+        "Air temperature [K]": 300.00,
+        "Process temperature [K]": 310.00,
+        "Rotational speed [rpm]": 1500,
+        "Torque [Nm]": 70.00,
+        "Tool wear [min]": 200,
+    },
+
+    "Demo 3 — High Risk Example": {
+        "Type": "L",
+        "Air temperature [K]": 300.00,
+        "Process temperature [K]": 310.00,
+        "Rotational speed [rpm]": 2500,
+        "Torque [Nm]": 10.00,
+        "Tool wear [min]": 150,
+    },
+}
+
+
+def apply_demo_scenario():
+    """Fill the input widgets with the selected example."""
+
+    scenario_name = st.session_state["demo_scenario"]
+    scenario = DEMO_SCENARIOS[scenario_name]
+
+    if scenario is None:
+        return
+
+    st.session_state["machine_type"] = scenario["Type"]
+    st.session_state["air_temp"] = scenario["Air temperature [K]"]
+    st.session_state["process_temp"] = scenario["Process temperature [K]"]
+    st.session_state["speed"] = scenario["Rotational speed [rpm]"]
+    st.session_state["torque"] = scenario["Torque [Nm]"]
+    st.session_state["wear"] = scenario["Tool wear [min]"]
+
 
 # ============================================================
 # SIDEBAR
 # ============================================================
 
 with st.sidebar:
-    st.title("MACHINEGUARD")
+    st.title("⚙️ MachineGuard")
     st.caption("PREDICTIVE MAINTENANCE")
-    st.divider()
-
-    st.subheader("Model")
-    st.write("Random Forest Classifier")
-
-    st.subheader("Problem Type")
-    st.write("Binary Classification")
-
-    st.subheader("Target")
-    st.write("Machine Failure")
-
-    st.subheader("Input Parameters")
-    st.write("Temperature • Speed • Torque • Tool Wear")
 
     st.divider()
-    st.caption("AI-assisted machine condition assessment")
 
-# ============================================================
-# HERO
-# ============================================================
+    st.markdown("### Model Information")
+    st.write("**Algorithm:** Random Forest")
+    st.write("**Problem:** Binary Classification")
+    st.write("**Target:** Machine Failure")
 
-with st.container(border=True):
-    st.markdown("### INDUSTRIAL AI • PREDICTIVE MAINTENANCE")
-    st.title("Predict Before It Fails.")
-    st.write(
-        "MachineGuard analyzes critical machine operating "
-        "conditions using machine learning to identify "
-        "potential equipment failures before they disrupt "
-        "production."
+    st.divider()
+
+    st.markdown("### Risk Thresholds")
+    st.success("LOW RISK — Below 40%")
+    st.warning("MODERATE — 40% to below 70%")
+    st.error("HIGH RISK — 70% or above")
+
+    st.caption(
+        "Risk levels are assigned by the application "
+        "after the model estimates failure probability."
     )
 
+
 # ============================================================
-# INPUT SECTION
+# HERO SECTION
 # ============================================================
 
-st.subheader("Machine Operating Parameters")
-st.caption("Enter the current operating conditions of the machine.")
+st.markdown(
+    """
+    <div class="hero">
+        <div class="eyebrow">INDUSTRIAL AI · PREDICTIVE MAINTENANCE</div>
+        <h1>Predict Before It Fails.</h1>
+        <p>
+            Enter machine operating conditions and let the trained
+            Random Forest model estimate failure probability.
+            MachineGuard converts the result into a simple risk level
+            to support maintenance decisions.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-left, right = st.columns(2, gap="large")
 
-with left:
+# ============================================================
+# GUIDED DEMO
+# ============================================================
+
+st.subheader("1. Choose a Demo Scenario")
+
+st.write(
+    "For your presentation, select one of the three examples. "
+    "The selected values will automatically fill the input fields."
+)
+
+st.selectbox(
+    "Demo preset",
+    options=list(DEMO_SCENARIOS.keys()),
+    index=0,
+    key="demo_scenario",
+    on_change=apply_demo_scenario,
+)
+
+selected_demo = st.session_state["demo_scenario"]
+
+if selected_demo != "Custom Inputs":
+    st.info(
+        "Demo values loaded. Review the readings below and click "
+        "**RUN FAILURE ANALYSIS** to see the actual model output."
+    )
+else:
+    st.caption(
+        "Choose Custom Inputs to enter your own machine readings."
+    )
+
+
+# ============================================================
+# MACHINE INPUTS
+# ============================================================
+
+st.subheader("2. Machine Operating Parameters")
+
+st.caption(
+    "The model considers all six parameters together. "
+    "A single parameter does not determine the final risk level."
+)
+
+col1, col2 = st.columns(2, gap="large")
+
+with col1:
     machine_type = st.selectbox(
         "Machine Type",
-        ["L", "M", "H"],
-        index=0,
-        help="Machine product type.",
+        options=["L", "M", "H"],
+        key="machine_type",
+        help="Machine type category in the training dataset.",
     )
 
     air_temperature = st.number_input(
@@ -286,6 +313,7 @@ with left:
         value=298.10,
         step=0.10,
         format="%.2f",
+        key="air_temp",
     )
 
     process_temperature = st.number_input(
@@ -295,15 +323,17 @@ with left:
         value=308.60,
         step=0.10,
         format="%.2f",
+        key="process_temp",
     )
 
-with right:
+with col2:
     rotational_speed = st.number_input(
         "Rotational Speed [rpm]",
         min_value=500,
         max_value=3000,
         value=1500,
         step=1,
+        key="speed",
     )
 
     torque = st.number_input(
@@ -313,28 +343,72 @@ with right:
         value=40.00,
         step=0.10,
         format="%.2f",
+        key="torque",
     )
 
     tool_wear = st.number_input(
         "Tool Wear [min]",
         min_value=0,
         max_value=300,
-        value=0,
+        value=20,
         step=1,
+        key="wear",
     )
+
+
+# ============================================================
+# RISK ASSESSMENT FUNCTION
+# ============================================================
+
+def assess_risk(failure_probability):
+    """
+    Convert the model's failure probability into
+    an application-defined risk category.
+    """
+
+    if failure_probability >= 0.70:
+        return (
+            "HIGH RISK",
+            "The estimated failure probability is 70% or above.",
+            "high",
+        )
+
+    if failure_probability >= 0.40:
+        return (
+            "MODERATE RISK",
+            "The estimated failure probability is from 40% "
+            "to below 70%.",
+            "moderate",
+        )
+
+    return (
+        "LOW RISK",
+        "The estimated failure probability is below 40%.",
+        "low",
+    )
+
+
+# ============================================================
+# RUN PREDICTION
+# ============================================================
 
 st.write("")
 
-predict = st.button(
+run_prediction = st.button(
     "RUN FAILURE ANALYSIS",
+    type="primary",
     use_container_width=True,
 )
 
-# ============================================================
-# PREDICTION
-# ============================================================
+if run_prediction:
 
-if predict:
+    if process_temperature <= air_temperature:
+        st.warning(
+            "Process temperature is normally expected to be higher "
+            "than air temperature. Verify these readings before "
+            "interpreting the result."
+        )
+
     input_data = pd.DataFrame(
         {
             "Type": [machine_type],
@@ -347,120 +421,164 @@ if predict:
     )
 
     try:
-        prediction = model.predict(input_data)[0]
+        prediction = int(model.predict(input_data)[0])
+
         probabilities = model.predict_proba(input_data)[0]
-        classes = list(model.classes_)
+        model_classes = list(model.classes_)
 
-        failure_probability = (
-            float(probabilities[classes.index(1)])
-            if 1 in classes
-            else 0.0
+        normal_index = model_classes.index(0)
+        failure_index = model_classes.index(1)
+
+        normal_probability = float(probabilities[normal_index])
+        failure_probability = float(probabilities[failure_index])
+
+    except Exception as error:
+        st.error(
+            "Prediction failed. Check that the saved model was "
+            "trained using the same six input features and target classes."
         )
-
-        normal_probability = (
-            float(probabilities[classes.index(0)])
-            if 0 in classes
-            else 1.0 - failure_probability
-        )
-
-    except Exception as exc:
-        st.error("Prediction failed.")
-        st.exception(exc)
+        st.exception(error)
         st.stop()
 
-    if failure_probability >= 0.70:
-        risk_level = "HIGH RISK"
-    elif failure_probability >= 0.40:
-        risk_level = "MODERATE RISK"
-    else:
-        risk_level = "LOW RISK"
+    risk_level, risk_explanation, risk_style = assess_risk(
+        failure_probability
+    )
 
-    st.write("")
-    st.subheader("Analysis Result")
+    st.divider()
+    st.subheader("3. Analysis Result")
 
-    if int(prediction) == 1:
-        st.error(
-            "MACHINE FAILURE\n\n"
-            "The model identifies an elevated probability of "
-            "machine failure under the supplied operating conditions."
+    # Predicted class and risk category are different outputs.
+    if prediction == 1:
+        st.error("### Predicted Condition: MACHINE FAILURE")
+        st.write(
+            "The model predicts the failure class for these operating "
+            "conditions. This is a model prediction, not a confirmed "
+            "physical failure."
         )
     else:
-        st.success(
-            "NORMAL OPERATION\n\n"
-            "The model predicts normal machine operation under "
-            "the supplied operating conditions."
+        st.success("### Predicted Condition: NORMAL OPERATION")
+        st.write(
+            "The model predicts the normal class for these operating "
+            "conditions. This does not guarantee that the machine "
+            "cannot fail."
         )
 
-    st.write("")
+    result1, result2, result3 = st.columns(3)
 
-    c1, c2, c3 = st.columns(3, gap="large")
-
-    with c1:
+    with result1:
         st.metric(
             "Failure Probability",
             f"{failure_probability * 100:.2f}%",
         )
 
-    with c2:
+    with result2:
         st.metric(
             "Normal Probability",
             f"{normal_probability * 100:.2f}%",
         )
 
-    with c3:
+    with result3:
         st.metric(
             "Risk Assessment",
             risk_level,
         )
 
-    st.write("")
-    st.subheader("Failure Probability")
     st.progress(failure_probability)
-    st.caption(
-        f"Estimated probability of machine failure: "
-        f"{failure_probability * 100:.2f}%"
-    )
 
-    with st.expander("VIEW MACHINE PARAMETERS"):
+    if risk_style == "low":
+        st.success(f"**Why Low Risk?** {risk_explanation}")
+    elif risk_style == "moderate":
+        st.warning(f"**Why Moderate Risk?** {risk_explanation}")
+    else:
+        st.error(f"**Why High Risk?** {risk_explanation}")
+
+    # --------------------------------------------------------
+    # SIMPLE EXPLANATION FOR DEMONSTRATION
+    # --------------------------------------------------------
+
+    with st.expander("Understand this result — simple explanation", expanded=True):
+        st.markdown(
+            """
+            **Step 1 — Input:** The six machine readings are passed
+            to the trained model.
+
+            **Step 2 — Prediction:** The Random Forest predicts one
+            of two classes: Normal (0) or Failure (1).
+
+            **Step 3 — Probability:** The model estimates the
+            probability for each class.
+
+            **Step 4 — Risk category:** The application checks the
+            failure probability against its thresholds.
+            """
+        )
+
+        st.markdown("**Risk rules used by MachineGuard:**")
+
+        st.markdown(
+            f"""
+            - **Below 40%:** Low Risk
+            - **40% to below 70%:** Moderate Risk
+            - **70% or above:** High Risk
+
+            The current failure probability is
+            **{failure_probability * 100:.2f}%**, so the application
+            assigns **{risk_level}**.
+            """
+        )
+
+        st.caption(
+            "These risk bands are application-defined rules, not "
+            "three separate classes learned by the Random Forest."
+        )
+
+    with st.expander("View the exact machine readings"):
         st.dataframe(
             input_data,
             use_container_width=True,
             hide_index=True,
         )
 
+    st.caption(
+        "MachineGuard is an educational decision-support demonstration. "
+        "Model probabilities are estimates, not guaranteed real-world "
+        "failure rates or a substitute for machine inspection."
+    )
+
+
 # ============================================================
-# ABOUT
+# ABOUT SECTION
 # ============================================================
 
-st.write("")
+st.divider()
+
 st.subheader("About MachineGuard")
-st.caption("Machine learning based predictive maintenance system.")
 
-a, b, c = st.columns(3, gap="large")
+about1, about2, about3 = st.columns(3)
 
-with a:
-    st.markdown("#### Predictive Maintenance")
+with about1:
+    st.markdown("**Predictive Maintenance**")
     st.write(
-        "Machine learning identifies patterns in machine "
-        "operating conditions that may indicate potential failure."
+        "Uses machine operating data to estimate potential "
+        "equipment failure."
     )
 
-with b:
-    st.markdown("#### Random Forest")
+with about2:
+    st.markdown("**Random Forest**")
     st.write(
-        "A Random Forest classifier uses the machine operating "
-        "parameters to predict machine failure."
+        "Combines multiple decision trees to make a classification "
+        "and estimate class probabilities."
     )
 
-with c:
-    st.markdown("#### Decision Support")
+with about3:
+    st.markdown("**Decision Support**")
     st.write(
-        "The prediction can assist maintenance teams in deciding "
-        "whether further machine inspection may be appropriate."
+        "Displays a predicted condition and a simple risk category "
+        "to help users interpret the result."
     )
 
 st.divider()
+
 st.caption(
-    "MACHINEGUARD • Predictive Maintenance • "
-    "Machine Failure Prediction using Machine Learning"
+    "MachineGuard | ML-Based Predictive Maintenance System"
 )
